@@ -39,6 +39,7 @@ def apply_async_with_callback():
                 for line in g:
                         #print(fileList)
                         pool.apply_async(execute_Command, args = (line.strip(), ))
+
         pool.close()
         pool.join()
 
