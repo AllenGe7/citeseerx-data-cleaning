@@ -9,6 +9,7 @@ import glob
 
 home = '/data/cxg5395'
 tempFolder = '/home/cxg5395/temp'
+directFolder = "/gstorage01/citeseerx-repo-snapshot/rep1/10/1/1"
 
 if not os.path.exists(tempFolder):
         os.makedirs(tempFolder)
@@ -34,14 +35,17 @@ def execute_Command(apply_files):
         subprocess.call(cmd_mv, shell = True)
         #reates the directory
 def apply_async_with_callback():
-        pool = mp.Pool(processes=10)
-        with open('/data/cxg5395/citeseerx-repo-snapshot-path-pdf.txt') as g:
-                for line in g:
-                        #print(fileList)
-                        pool.apply_async(execute_Command, args = (line.strip(), ))
+        pool = mp.Pool(processes=16)
 
+        for root, dirs, files in os.walk(directFolder):
+                for file in files:
+                        if file.endswith(".pdf"):
+                                path = os.path.join(root, file)
+
+                                pool.apply_async(execute_Command, args = (path, ))
         pool.close()
         pool.join()
+
 
 if __name__ == '__main__':
         apply_async_with_callback()
