@@ -1,10 +1,13 @@
 import xml.etree.ElementTree as ET
-tree = ET.parse('example2.xml')
+with open('example2.xml', 'rt') as f:
+    tree = ET.parse(f)
+
 root = tree.getroot()
 
 tag = '{http://www.tei-c.org/ns/1.0}'
-#get game
+
 #insert error catchers
+
 for child in root:
         for lower in child:
                 #print(lower.tag)
@@ -38,7 +41,7 @@ for child in root:
                 try:
                         for version_child in version_parent.findall(tag + 'appInfo'):
                                 for version in version_child:
-                                        print(version_result.tag)
+
                                         version_result = version.get('ident')
                                         print(version_result)
                 #find versionTime
@@ -55,13 +58,44 @@ for child in root:
                                 for analytic in biblStruct:
                                         for author in analytic:
 
+                                                #get name
                                                 for persName in author.findall(tag + 'persName'):
+                                                        try:
+                                                                for name_result in persName.getchildren():
+                                                                        print(name_result.text)
+                                                                
+                                                        except:
+                                                                print('no name')
+
+                                                #get affiliation
+                                                for affiliation in author.findall(tag + 'affiliation'):
+
+                                                                for affiliation_result in affiliation.getchildren():
+                                                                        print(affiliation_result.text)
+                                                                #get address
+                                                                for address in affiliation.findall(tag + 'address'):
+                                                                        for address_result in address.getchildren():
+                                                                                print(address_result.text)
 
 
-                                                        firstname = persName.find(tag + 'forename').text
-                                                        surname = persName.find(tag + 'surname').text
-                                                         print('first name only')
+                                                #get email
+                                                for email in author.findall(tag + 'email'):
 
+                                                        print(email.text)
+                                                
+                                                #notes
+                                                #surname = persName.find(tag + 'surname').text
+                                                        #something.append(firstname)
+                                                        #print(something)
+                                                        #forme.get('type') middlename in persName:
+                                                                #firstname = persName.find(tag + 'forename').text
+                                                                #middlename = persName.find(tag + 'forename').text where middlename.get('type') == 'middle'
+                                                                #print(firstname, middlename)
+                                                                #print('1')
+                                                                #surname = persName.find(tag + 'surname').text
+                                                                #firstname = persName.find(tag + 'forename').text
+                                                                #print(firstname, surname)
+                                                '''
                                                         try:
                                                                 for middlename in persName:
                                                                         middle = middlename.get('type')
@@ -77,3 +111,5 @@ for child in root:
                                                         print(org_type)
                                                         #rganization = orgName.find(tag + 'orgName').text
                                                         #print(organization)
+                                                '''
+
