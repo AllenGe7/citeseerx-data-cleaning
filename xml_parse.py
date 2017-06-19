@@ -117,6 +117,62 @@ for child in root:
                                                         if (issueBoolean and volumeBoolean):
                                                                 print('print to number table')
 
+for teiHeader in root:
+
+        for front in teiHeader:
+                for div in front:
+                        for listBibl in div:
+                                for biblStruc in listBibl:
+                                        for analytic in biblStruc.findall(tag + 'analytic'):
+                                                for title in analytic.findall(tag + 'title'):
+                                                        #print(title.text)
+                                                        print('')
+                                                for title in analytic.findall(tag + 'author'):
+
+                                                        for persName in title:
+                                                                refName_result = []
+                                                                for refName in persName.getchildren():
+
+                                                                        refName_result.append(refName.text)
+                                                                print(', '.join(refName_result))
+                                        for monogr in biblStruc.findall(tag + 'monogr'):
+                                                for imprint in monogr:
+
+                                                        for refInfo in imprint.findall(tag + 'biblScope'):
+
+
+                                                                refVolume_match = {'unit': 'volume'}
+
+                                                                if (refInfo.get('unit') == 'page'):
+
+                                                                        if (refInfo.text == None):
+                                                                                refPage_from = refInfo.get('from')
+                                                                                refPage_to = refInfo.get('to')
+                                                                                refPage_result = refPage_from + ' ' + refPage_to
+                                                                                print(refPage_result)
+                                                                        else:
+                                                                                print(refInfo.text)
+                                                                elif (refInfo.get('unit') == 'volume'):
+                                                                        if (refInfo.text == None):
+
+                                                                                refVolume_from = refInfo.get('from')
+                                                                                refVolume_to = refInfo.get('to')
+                                                                                refVolume_result = refVolume_from + ' ' + refVolume_to
+                                                                                print(refVolume_result)
+
+                                                                        else:
+                                                                                print(refInfo.text)
+                                                                elif (refInfo.get('unit') == 'issue'):
+                                                                        if (refInfo.text == None):
+                                                                                refIssue_from = refInfo.get('from')
+                                                                                refIssue_to = refInfo.get('to')
+                                                                                refIssue_result = refIssue_from + ' ' + refIssue_to
+                                                                                print(refIssue_result)
+                                                                        else:
+                                                                                print(refInfo.text)
+                                                        for refDate in imprint.findall(tag + 'date'):
+                                                                refDate_year = refDate.get('when')
+                                                                print(refDate_year)
 
 
                                                         #surname = persName.find(tag + 'surname').text
