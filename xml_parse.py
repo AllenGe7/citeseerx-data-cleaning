@@ -97,25 +97,30 @@ for child in root:
                                                         for email in author.findall(tag + 'email'):
                                                                 print(email.text)
                                                 for biblScope in author.findall(tag + 'biblScope'):
-                                                        volume_match = {'unit': 'volume'}
-                                                        issue_match = {'unit': 'issue'}
-
-                                                        if (volume_match == biblScope.attrib):
-                                                                volume_result = biblScope.text
-                                                                print(volume_result)
-                                                                volumeBoolean = True
-                                                        if (issue_match == biblScope.attrib):
-                                                                issue_result = biblScope.text
-                                                                print(issue_result)
-                                                                issueBoolean = True
                                                         if (biblScope.get('unit') == 'page'):
-                                                                page_from = biblScope.get('from')
-                                                                page_to = biblScope.get('to')
-                                                                page_result = page_from + ' '+ page_to
-                                                                print(page_result)
-                                                                pageBoolean = True
-                                                        if (issueBoolean and volumeBoolean):
-                                                                print('print to number table')
+                                                                if (biblScope.text == None):
+                                                                        Page_from = biblScope.get('from')
+                                                                        Page_to = biblScope.get('to')
+                                                                        Page_result = Page_from + ' ' + Page_to
+                                                                        print(Page_result)
+                                                                else:
+                                                                        print(biblScope.text)
+                                                        elif (biblScope.get('unit') == 'volume'):
+                                                                if (biblScope.text == None):
+                                                                        Volume_from = biblScope.get('from')
+                                                                        Volume_to = biblScope.get('to')
+                                                                        Volume_result = Volume_from + ' ' + Volume_to
+                                                                        print(Volume_result)
+                                                                else:
+                                                                        print(biblScope.text)
+                                                        elif (biblScope.get('unit') == 'volume'):
+                                                                if (biblScope.text == None):
+                                                                        Volume_from = biblScope.get('from')
+                                                                        Volume_to = biblScope.get('to')
+                                                                        Volume_result = Volume_from + ' ' + Volume_to
+                                                                        print(Volume_result)
+                                                                else:
+                                                                        print(biblScope.text)
 
 for teiHeader in root:
 
