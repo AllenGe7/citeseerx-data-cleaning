@@ -144,7 +144,18 @@ for child in root:
                                                                 pageBoolean = True
                                                         if (issueBoolean and volumeBoolean):
                                                                 number_result = issue_result
+                                                for email_exist in author:
 
+
+
+
+                                                        if (email_exist.tag == (tag + 'email')):
+
+                                                                print('found email tag')
+                                                        else:
+                                                                email_result = 'Null'
+                                                                author_email_array.append(email_result)
+                                                                break;                                                                
 ncite = 0
 for teiHeader in root:
 
