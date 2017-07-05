@@ -1,0 +1,112 @@
+from __future__ import print_function
+from datetime import date, datetime, timedelta
+from mysql.connector import MySQLConnection, Error
+import xml.etree.ElementTree as ET
+import os
+import time
+import datetime
+
+import mysql.connector
+import run
+
+for teiHeader in root:
+
+        for front in teiHeader:
+                for div in front:
+                        for listBibl in div:
+                                for biblStruc in listBibl:
+                                        temp_author_result = []
+
+                                        for analytic in biblStruc.findall(tag + 'analytic'):
+                                                try:
+                                                        ref_title_result = []
+
+                                                        for title in analytic.findall(tag + 'title'):
+
+                                                                ref_title_result.append(title.text)
+
+
+                                                        ref_title_array.append(' '.join(ref_title_result))
+
+
+                                                        for title in analytic.findall(tag + 'author'):
+                                                                ref_author_result = []
+                                                                for persName in title.findall(tag + 'persName'):
+                                                                                #ref_author_result.append(persName.text)
+                                                                                #print(persName.tag)
+                                                                        for refName in persName.findall(tag + 'forename'):
+
+                                                                                ref_author_result.append(refName.text)
+                                                                        for somethingelse in persName.findall(tag + 'surname'):
+                                                                                ref_author_result.append(somethingelse.text)
+                                                except:
+                                                        continue
+                                                                #print((', '.join(refName_result)))
+                                                        #print(finalarray)
+                                        for monogr in biblStruc.findall(tag + 'monogr'):
+                                                for imprint in monogr:
+
+                                                        try:
+
+                                                                for refInfo in imprint.findall(tag + 'biblScope'):
+
+
+                                                                        refVolume_match = {'unit': 'volume'}
+
+                                                                        if (refInfo.get('unit') == 'page'):
+
+                                                                                if (refInfo.text == None):
+                                                                                        refPage_from = refInfo.get('from')
+                                                                                        refPage_to = refInfo.get('to')
+                                                                                        refPage_result = refPage_from + ' ' + refPage_to
+
+                                                                                        ref_page_array.append(refPage_result)
+                                                                                else:
+                                                                                        ref_page_array.append(refInfo.text)
+
+                                                                        elif (refInfo.get('unit') == 'volume'):
+                                                                                if (refInfo.text == None):
+                                                                                        refVolume_from = refInfo.get('from')
+                                                                                        refVolume_to = refInfo.get('to')
+                                                                                        refVolume_result = refVolume_from + ' ' + refVolume_to
+                                                                                        #print(refVolume_result)
+                                                                                        ref_volume_array.append(refVolume_result)
+                                                                                else:
+                                                                                        ref_volume_array.append(refInfo.text)
+                                                                        elif (refInfo.get('unit') == 'issue'):
+                                                                                if (refInfo.text == None):
+                                                                                        refIssue_from = refInfo.get('from')
+                                                                                        refIssue_to = refInfo.get('to')
+                                                                                        refIssue_result = refIssue_from + ' ' + refIssue_to
+                                                                                        #print(refIssue_result)
+                                                                                        ref_number_array.append(refIssue.result)
+                                                                                else:
+                                                                                        ref_number_array.append(refInfo.text)
+                                                                for refDate in imprint.findall(tag + 'date'):
+                                                                        refDate_year = refDate.get('when')
+
+                                                                        ref_year_array.append(refDate_year)
+                                                                missing_ref_date = []
+                                                                for errorCheck in imprint:
+
+                                                                        missing_ref_date.append(errorCheck.tag)
+                                                                #print(missing_ref_date)
+
+                                                                ref_date_string = '{http://www.tei-c.org/ns/1.0}date'
+                                                                #print(ref_date_string)
+                                                                if ref_date_string not in missing_ref_date:
+
+                                                                        refDate_year = 'Null'
+                                                                        ref_year_array.append(refDate_year)
+
+                                                        except:
+                                                                continue
+                                                ref_imprint_check = []
+                                                for ref_imprint in imprint:
+                                                        ref_imprint_check.append(ref_imprint.attrib)
+                                                #print(ref_imprint_check)
+
+
+                                        ncite = ncite + 1
+
+\
