@@ -16,7 +16,7 @@ import string
 import re
 import sys
 
-cnx = mysql.connector.connect(user= 'csx-devel', password= 'csx-devel', host='csxstaging01.ist.psu.edu', database='test')
+cnx = mysql.connector.connect(user= '********', password= '******', host='csxstaging01.ist.psu.edu', database='test')
 
 cursor = cnx.cursor()
 
