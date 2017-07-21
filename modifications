@@ -1,0 +1,989 @@
+from __future__ import print_function
+from datetime import date, datetime, timedelta
+from mysql.connector import MySQLConnection, Error
+import xml.etree.ElementTree as ET
+import os
+import time
+import datetime
+import logging
+import mysql.connector
+import run
+from simhash import Simhash
+import re
+import hashlib
+from unidecode import unidecode
+import string
+import re
+import sys
+
+cnx = mysql.connector.connect(user= 'csx-devel', password= 'csx-devel', host='csxstaging01.ist.psu.edu', database='test')
+
+cursor = cnx.cursor()
+
+def get_features(s):
+        width = 3
+        s = s.lower()
+        s = re.sub(r'[^\w]+', '', s)
+        return [s[i:i + width] for i in range(max(len(s) - width + 1, 1))]
+def execute(file_path):
+
+        tree = ET.parse(file_path)
+
+        root = tree.getroot()
+
+        basetag = os.path.basename(os.path.normpath(file_path).replace('.tei.xml',''))
+
+
+        tag = '{http://www.tei-c.org/ns/1.0}'
+#get game
+#insert error catchers
+
+        volumeBoolean = False
+        pageBoolean = False
+        issueBoolean = False
+
+        paper_norm_title = ''
+        title_result_sim = ''
+        title_result_sha1 = ''
+        title_result = ''
+        abstract_result = ''
+        abstract_result_sim = ''
+        date_result = ''
+        venue_result = ''
+        page_result = ''
+        volume_result = ''
+        number_result = ''
+        ncite = 0
+        version_result = ''
+        version_time_result = ''
+        author_email_array = []
+        author_name_array = []
+        author_address_array = []
+        author_affiliation_array = []
+        author_ord_array = []
+        author_lname_array = []
+        author_mname_array = []
+        author_fname_array = []
+        author_paperid_array = []
+        author_cluster_array = []
+
+        ref_title_array = []
+        ref_author_array = []
+        ref_venue_array = []
+        ref_year_array = []
+        ref_page_array = []
+        ref_volume_array = []
+        ref_number_array = []
+        ref_tech_array = []
+        ref_raw_array = []
+
+        ordnum = 0
+
+        for child in root:
+                for lower in child:
+                        #print(lower.tag)
+                        #find name
+                        try:
+                                for titleStmt in lower.findall(tag + 'titleStmt'):
+                                        title_result = titleStmt.find(tag + 'title').text
+                                        #print(title_result)
+
+                                        paper_norm_title_lower = unidecode(title_result.lower())
+
+                                        translator = str.maketrans(string.punctuation, ' '*len(string.punctuation))
+                                        paper_norm_title_space = paper_norm_title_lower.translate(translator)
+
+                                        #exclude = set(string.punctuation)
+                                        #paper_norm_title = ''.join(ch for ch in paper_norm_title_space if ch not in exclude)
+                                        paper_norm_title = re.sub(' +', ' ', paper_norm_title_space)
+
+                                        #print(paper_norm_title)
+
+
+                                        #title_result = titleStmt.find(tag + 'title').text
+
+                                        title_result_sim = ('%x' % Simhash(get_features(paper_norm_title)).value)
+                                        #print(title_result_sim)
+                                        #print(title_result)
+
+                                        title_result_sha1 = hashlib.sha1(paper_norm_title.encode('utf8')).hexdigest()
+
+                                        #print(title_result_sha1)
+
+                                        #m = hashlib.sha1()
+                                        #m.update(title_string.encode('utf8'))
+                                        #m.update(var)
+                                        #title_result_sha1 = m.digest()
+                                        #print(title_result_sha1)
+                        except:
+                                title_result = ''
+
+
+                for abstract_parent in child:
+                        #find abstract
+                        try:
+                                for abstract_elem in abstract_parent.findall(tag + 'abstract'):
+                                        abstract_result = abstract_elem.find(tag + 'p').text
+                                        abstract_result_sim = '%x' % Simhash(get_features(abstract_result)).value
+                                #print(abstract_result)
+
+                        except:
+                                abstract_result = ''
+                for publication_date in child:
+                        #find publication date
+
+                        try:
+                                for publicationStmt in publication_date.findall(tag + 'publicationStmt'):
+
+
+                                        for date_tag in publicationStmt.findall(tag + 'date'):
+
+                                                date_result_string = str(date_tag.get('when'))[:4]
+
+                                                date_result = int(date_result_string)
+
+                                #print(ate_result)
+                        except:
+                                date_result = ''
+
+                for version_parent in child:
+                        #find version name
+
+                        try:
+                                for version_child in version_parent.findall(tag + 'appInfo'):
+                                        for version in version_child:
+
+                                                version_result = version.get('ident')
+
+                        #find versionTime
+                                                version_time_result = version.get('when')
+                                        #print(version_time_result)
+                        except:
+                                version_result = ''
+                                version_time_result = ''
+
+                for authors_parent in child:
+
+                        for authors_child in authors_parent:
+
+                                for biblStruct in authors_child:
+
+                                        for analytic in biblStruct:
+                                                for author in analytic:
+
+
+                                                        for persName in author.findall(tag + 'persName'):
+                                                                ordnum = ordnum + 1
+                                                                author_ord_array.append(ordnum)
+                                                                '''
+                                                                #get name
+                                                                try:
+                                                                        ordnum = ordnum + 1
+                                                                        #print(ordnum)
+                                                                        author_ord_array.append(ordnum)
+                                                                        author_name = []
+                                                                        for name_final in persName.getchildren():
+                                                                                author_name.append(name_final.text)
+                                                                        name_result = (' '.join(author_name))
+
+                                                                        #print(name_result)
+                                                                        author_name_array.append(name_result)
+                                                                        for author_forename in persName.findall(tag + 'surname'):
+                                                                                author_lname_array.append(author_forename.text)
+                                                                except:
+                                                                        continue
+                                                                try:
+                                                                        for author_forename in persName.findall(tag + 'forename'):
+                                                                                author_firstname_boolean = False
+                                                                                author_middlename_boolean = False
+                                                                                author_firstname_match = {'type': 'first'}
+                                                                                author_middlename_match = {'type': 'middle'}
+                                                                                if (author_forename.attrib == author_firstname_match):
+                                                                                        author_fname_array.append(author_forename.text)
+                                                                                        author_firstname_boolean = True
+                                                                                elif (author_forename.attrib == author_middlename_match):
+                                                                                        author_mname.array.append(author_forename.text)
+                                                                                        author_middlename_boolean = True
+                                                                                if (not author_firstname_boolean):
+                                                                                        author_fname_array.append(None)
+                                                                                if (not author_middlename_boolean):
+                                                                                        author_mname_array.append(None)
+                                                                except:
+                                                                        continue
+                                                                '''
+                                                                        #print(name_result)
+                                                                #get affiliation
+                                                        for affiliation in author.findall(tag + 'affiliation'):
+                                                                '''
+                                                                try:
+                                                                        author_affiliation = []
+
+                                                                        for affiliation_tag in affiliation.findall(tag + 'orgName'):
+
+                                                                                author_affiliation.append(affiliation_final.text)
+
+                                                                        affiliation_result = (', '.join(author_affiliation))
+                                                                        author_affiliation_array.append(affiliation_result)
+                                                                except:
+                                                                        continue
+
+                                                                try
+                                                                                #print(affiliation_result)
+                                                                                #get address
+                                                                                #print(author_affiliation_array)
+                                                                        author_address = []
+                                                                        for address in affiliation.findall(tag + 'address'):
+                                                                                for address_final in address.getchildren():
+                                                                                        author_address.append(address_final.text)
+                                                                                        author_result = (', '.join(author_address))
+                                                                        author_address_array.append(author_result)
+
+
+                                                                except:
+
+                                                                        author_address_array.append(None)
+                                                                #get email
+                                                                        #print(email_result)
+                                                        for biblScope in author.findall(tag + 'biblScope'):
+                                                                try:
+                                                                        volume_match = {'unit': 'volume'}
+                                                                        issue_match = {'unit': 'issue'}
+
+                                                                        if (volume_match == biblScope.attrib):
+                                                                                volume_result = int(biblScope.text)
+                                                                                #print(volume_result)
+                                                                                volumeBoolean = True
+                                                                        if (issue_match == biblScope.attrib):
+                                                                                issue_result = int(biblScope.text)
+                                                                                #print(issue_result)
+                                                                                issueBoolean = True
+                                                                        if (biblScope.get('unit') == 'page'):
+                                                                                page_from = biblScope.get('from')
+                                                                                page_to = biblScope.get('to')
+                                                                                page_result = page_from + '-'+ page_to
+                                                                                #print(page_result)
+
+                                                                                pageBoolean = True
+                                                                        if (issueBoolean and volumeBoolean):
+                                                                                number_result = issue_result
+                                                                except:
+                                                                        continue
+                                                                '''
+                                                #if author_email
+                                                for author_exist in analytic.findall(tag + 'author'):
+                                                        missing_author = []
+                                                        missing_nameinfo = []
+                                                        missing_nameinfo_attrib = []
+                                                        missing_affiliation_info = []
+                                                        final_author_tag = []
+                                                        final_lname_tag = []
+                                                        final_fname_tag = []
+                                                        final_mname_tag = []
+                                                        final_affiliation_tag = []
+                                                        final_address_tag = []
+
+                                                        author_firstname_match = {'type': 'first'}
+                                                        author_middlename_match = {'type': 'middle'}
+                                                        #get the total tags of author
+                                                        for email_exist in author_exist:
+                                                                missing_author.append(email_exist.tag)
+
+                                                        #email tag append
+                                                        for email_tag in author_exist.findall(tag + 'email'):
+
+                                                                final_email_tag = email_tag.text
+                                                        for name_tag in author_exist.findall(tag + 'persName'):
+                                                                #get the total tags of persName
+                                                                for names_final in name_tag:
+
+                                                                        missing_nameinfo.append(names_final.tag)
+                                                                        missing_nameinfo_attrib.append(names_final.attrib)
+                                                                        if (names_final.attrib == author_firstname_match):
+                                                                                names_fname_text = names_final.text
+
+                                                                                fname_final_pre = unidecode(names_fname_text.lower())
+                                                                                remove = string.punctuation
+                                                                                remove = remove.replace("-", "")
+                                                                                translator = str.maketrans(remove, ' '*len(remove))
+                                                                                author_norm_fname_tag = fname_final_pre.translate(translator)
+
+                                                                                final_fname_tag_again = re.sub(' +', ' ', author_norm_fname_tag)
+
+                                                                                final_fname_tag.append(final_fname_tag_again)
+
+                                                                        fname_result_tag = (' '.join(final_fname_tag))
+
+                                                                        if (names_final.attrib == author_middlename_match):
+                                                                                names_mname_text = names_final.text
+                                                                                mname_final_pre = unidecode(names_mname_text.lower())
+                                                                                remove = string.punctuation
+                                                                                remove = remove.replace("-", "")
+
+                                                                                translator = str.maketrans(remove, ' '*len(remove))
+                                                                                author_norm_mname_tag = mname_final_pre.translate(translator)
+                                                                                final_mname_tag_again = re.sub(' +', ' ', author_norm_mname_tag)
+                                                                                final_mname_tag.append(final_mname_tag_again)
+
+                                                                        mname_result_tag = (' '.join(final_mname_tag))
+
+                                                                for name_final in name_tag.getchildren():
+                                                                        final_author_tag.append(name_final.text)
+                                                                for surname_final in name_tag.findall(tag + 'surname'):
+                                                                        name_final_text = name_final.text
+                                                                        remove = string.punctuation
+                                                                        remove = remove.replace("-", "")
+                                                                        name_final_pre = unidecode(name_final_text.lower())
+                                                                        translator = str.maketrans(remove, ' '*len(remove))
+                                                                        author_norm_name_tag = name_final_pre.translate(translator)
+                                                                        final_lname_tag_again = re.sub(' +', ' ', author_norm_name_tag)
+
+
+                                                                        final_lname_tag.append(final_lname_tag_again)
+
+
+
+                                                                lname_result_tag = (' '.join(final_lname_tag))
+                                                                name_result_tag = (' '.join(final_author_tag))
+
+                                                        for affiliation_tag in author_exist.findall(tag + 'affiliation'):
+                                                                for affiliation_info in affiliation_tag:
+                                                                        missing_affiliation_info.append(affiliation_info.tag)
+
+                                                                for affiliation_final in affiliation_tag.findall(tag + 'orgName'):
+                                                                        final_affiliation_tag.append(affiliation_final.text)
+                                                                affiliation_result_tag = (', '.join(final_affiliation_tag))
+
+                                                                for address_final in affiliation_tag.findall(tag + 'address'):
+                                                                        for address_final_layer in address_final.getchildren():
+                                                                                final_address_tag.append(address_final_layer.text)
+                                                                        address_result_tag = (', '.join(final_address_tag))
+
+                                                        missing_email_string = tag + 'email'
+
+                                                        missing_name_string = tag + 'persName'
+                                                        missing_affiliation_string = tag + 'affiliation'
+                                                        missing_address_string = tag + 'address'
+                                                        missing_surname_string = tag + 'surname'
+                                                        #print(missing_email)
+                                                        #if (ordnum == 0):
+                                                        #       break
+
+                                                        if missing_email_string not in missing_author:
+
+                                                                author_email_array.append(None)
+                                                        elif missing_email_string in missing_author:
+                                                                author_email_array.append(final_email_tag)
+
+                                                        if missing_name_string not in missing_author:
+                                                                author_name_array.append(None)
+                                                        elif missing_name_string in missing_author:
+                                                                author_name_array.append(name_result_tag)
+                                                        if missing_affiliation_string not in missing_author:
+                                                                author_affiliation_array.append(None)
+                                                        elif missing_affiliation_string in missing_author:
+                                                                author_affiliation_array.append(affiliation_result_tag)
+                                                        if missing_address_string in missing_affiliation_info:
+                                                                author_address_array.append(address_result_tag)
+                                                        elif missing_address_string not in missing_affiliation_info:
+                                                                author_address_array.append(None)
+                                                        #get nameinfo
+                                                        if missing_surname_string in missing_nameinfo:
+                                                                author_lname_array.append(lname_result_tag)
+                                                        elif missing_surname_string not in missing_nameinfo:
+                                                                author_lname_array.append(None)
+                                                        if author_firstname_match in missing_nameinfo_attrib:
+                                                                author_fname_array.append(fname_result_tag)
+                                                        elif author_firstname_match not in missing_nameinfo_attrib:
+                                                                author_fname_array.append(None)
+                                                        if author_middlename_match in missing_nameinfo_attrib:
+                                                                author_mname_array.append(mname_result_tag)
+                                                        elif author_middlename_match not in missing_nameinfo_attrib:
+                                                                author_mname_array.append(None)
+
+
+        ncite = 0
+        testing = []
+
+        for teiHeader in root:
+
+                for front in teiHeader:
+                        for div in front:
+                                for listBibl in div:
+                                        for biblStruc in listBibl:
+                                                temp_author_result = []
+
+                                                for analytic in biblStruc.findall(tag + 'analytic'):
+                                                        try:
+                                                                ref_title_result = []
+
+                                                                for title in analytic.findall(tag + 'title'):
+
+                                                                        ref_title_result.append(title.text)
+                                                                ref_title_array.append(' '.join(ref_title_result))
+
+
+                                                                for title in analytic.findall(tag + 'author'):
+                                                                        ref_author_result = []
+                                                                        for persName in title.findall(tag + 'persName'):
+                                                                                        #ref_author_result.append(persName.text)
+                                                                                        #print(persName.tag)
+                                                                                for refName in persName.findall(tag + 'forename'):
+
+                                                                                        ref_author_result.append(refName.text)
+                                                                                for somethingelse in persName.findall(tag + 'surname'):
+                                                                                        ref_author_result.append(somethingelse.text)
+                                                                                #print(ref_author_result)
+                                                                                #temp_author_result.append(' '.join(ref_author_result))
+                                                                                        #print(ref_author_result)
+
+                                                                                #testing.extend([ref_author_result])
+                                                                                #count = count('forname')
+                                                                                #print(count)
+
+                                                                                        #ref_author_result.append('-----')
+                                                                        #print(ref_author_result[1])
+                                                                        #rint(ref_author_result)
+                                                                        #ref_author_array.append(' '.join(ref_author_result))
+
+                                                                #emp_author_result.extend(' '.join(testing))
+                                                                #rint(temp_author_result)
+                                                        except:
+                                                                continue
+                                                                        #print((', '.join(refName_result)))
+                                                                #print(finalarray)
+                                                for monogr in biblStruc.findall(tag + 'monogr'):
+                                                        for imprint in monogr:
+
+                                                                try:
+
+                                                                        for refInfo in imprint.findall(tag + 'biblScope'):
+
+
+                                                                                refVolume_match = {'unit': 'volume'}
+
+                                                                                if (refInfo.get('unit') == 'page'):
+
+                                                                                        if (refInfo.text == None):
+                                                                                                refPage_from = refInfo.get('from')
+                                                                                                refPage_to = refInfo.get('to')
+                                                                                                refPage_result = refPage_from + ' ' + refPage_to
+
+                                                                                                ref_page_array.append(refPage_result)
+                                                                                        else:
+                                                                                                ref_page_array.append(refInfo.text)
+
+                                                                                elif (refInfo.get('unit') == 'volume'):
+                                                                                        if (refInfo.text == None):
+                                                                                                refVolume_from = refInfo.get('from')
+                                                                                                refVolume_to = refInfo.get('to')
+                                                                                                refVolume_result = refVolume_from + ' ' + refVolume_to
+                                                                                                #print(refVolume_result)
+                                                                                                ref_volume_array.append(refVolume_result)
+                                                                                        else:
+                                                                                                ref_volume_array.append(refInfo.text)
+                                                                                elif (refInfo.get('unit') == 'issue'):
+                                                                                        if (refInfo.text == None):
+                                                                                                refIssue_from = refInfo.get('from')
+                                                                                                refIssue_to = refInfo.get('to')
+                                                                                                refIssue_result = refIssue_from + ' ' + refIssue_to
+                                                                                                #print(refIssue_result)
+                                                                                                ref_number_array.append(refIssue.result)
+                                                                                        else:
+                                                                                                ref_number_array.append(refInfo.text)
+                                                                        for refDate in imprint.findall(tag + 'date'):
+                                                                                refDate_year = refDate.get('when')
+
+                                                                                ref_year_array.append(refDate_year)
+                                                                        missing_ref_date = []
+
+                                                                        for errorCheck in imprint:
+
+                                                                                missing_ref_date.append(errorCheck.tag)
+                                                                        #print(missing_ref_date)
+
+                                                                        ref_date_string = '{http://www.tei-c.org/ns/1.0}date'
+                                                                        #print(ref_date_string)
+                                                                        if ref_date_string not in missing_ref_date:
+
+                                                                                refDate_year = 'Null'
+                                                                                ref_year_array.append(refDate_year)
+
+                                                                except:
+                                                                        continue
+                                                        ref_imprint_check = []
+                                                        for ref_imprint in imprint:
+                                                                ref_imprint_check.append(ref_imprint.attrib)
+                                                        #print(ref_imprint_check)
+
+
+                                                ncite = ncite + 1
+
+
+
+        #print(ref_title_array)
+#print(ref_author_array)
+#print(ref_page_array)
+#print(ref_volume_array)
+#print(ref_number_array)
+#print(ref_year_array)
+#print(testing)
+
+        paper_version = 1
+        paper_cluster = None
+        paper_doi = None
+
+        paper_norm_venue = None
+        paper_venueType = None
+        paper_publisher = None
+        paper_pubAddress = None
+        paper_tech = None
+        paper_public = 1
+        paper_repositoryID = None
+        paper_conversionTrace = None
+        paper_selfCites = 0
+        paper_versionTime = None
+
+
+        ts = time.time()
+
+        CURRENT_TIMESTAMP = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+        #print(CURRENT_TIMESTAMP)
+
+        if (title_result == ''):
+                title_result = None
+                title_result_sim = None
+                title_result_sha1 = None
+                paper_norm_title = None
+        if (abstract_result == ''):
+                abstract_result = None
+                abstract_result_sim = None
+        if (date_result == ''):
+                date_result = None
+        if (page_result == ''):
+                page_result = None
+        if (volume_result == ''):
+                volume_result = None
+        if (number_result == ''):
+                number_result = None
+        if (version_result == ''):
+                version_result = None
+        if (version_time_result == ''):
+                version_time_result = None
+
+
+        venue_result = None
+        result_array = []
+
+
+        '''
+        query = ("insert into papers "
+                "(id, version, cluster, doi, title, norm_title, sha1_norm_title, abstract, year, venue, norm_venue, venueType, pages, volume, number, publisher, pubAddress, tech, public, ncites, versionName, crawlDate, repositoryID, conversionTrace, selfCites, versionTime) "
+                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+        paper_execute = (basetag, paper_version, paper_cluster, paper_doi, title_result, paper_norm_title, title_result_sha1, abstract_result, date_result, venue_result, paper_norm_venue, paper_venueType, page_result, volume_result, number_result, paper_publisher, paper_pubAddress, paper_tech, paper_public, ncite, version_result, CURRENT_TIMESTAMP, paper_repositoryID, paper_conversionTrace, paper_selfCites, CURRENT_TIMESTAMP)
+
+        print(paper_execute)
+        cursor.execute(query, paper_execute)
+        cnx.commit()
+        '''
+        #working papers
+
+
+
+
+
+        paper_execute = (basetag, paper_version, paper_cluster, paper_doi, title_result, paper_norm_title, title_result_sha1, title_result_sim, abstract_result, abstract_result_sim, date_result, venue_result, paper_norm_venue, paper_venueType, page_result, volume_result, number_result, paper_publisher, paper_pubAddress, paper_tech, paper_public, ncite, version_result, CURRENT_TIMESTAMP, paper_repositoryID, paper_conversionTrace, paper_selfCites, CURRENT_TIMESTAMP)
+
+        papers_batch.append(paper_execute)
+
+
+
+        if (count_batch % 100 == 0):
+                papers_batch_string = ', '.join(str(e) for e in papers_batch)
+
+
+                batch_insert = ("insert into papers2 "
+                                "(id, version, cluster, doi, title, norm_title, sha1_norm_title, sim_norm_title, abstract, sim_abstract, year, venue, norm_venue, venueType, pages, volume, number, publisher, pubAddress, tech, public, ncites, versionName, crawlDate, repositoryID, conversionTrace, selfCites, versionTime) "
+                                "values %s ") %papers_batch_string
+
+                #print(papers_batch)
+                cursor.execute(batch_insert.replace('None', 'NULL'))
+                #rint('_____________________________________')
+                cnx.commit()
+
+                papers_batch.clear()
+
+
+
+
+
+        #cnx.commit()
+
+
+        venue_result = 'Null'
+
+
+        author_array = []
+
+        #print(author_email_array)
+        #print(author_name_array)
+        #print(author_ord_array)
+        #print(author_address_array)
+        #print(author_affiliation_array)s
+
+
+        if (ordnum == 0):
+                #print('no author')
+                return
+
+
+
+        for j in range(ordnum):
+                author_cluster_array.append(None)
+                author_paperid_array.append(basetag)
+
+        #print(author_cluster_array)
+        #print(author_name_array)
+        #print(author_lname_array)
+        #print(author_fname_array)
+        #print(author_mname_array)
+        #print(author_affiliation_array)
+        #print(author_address_array)
+        #print(author_email_array)
+        #print(author_ord_array)
+        #print(author_paperid_array)
+
+
+        for i in range(ordnum):
+                author_execute = (author_cluster_array[i], author_name_array[i], author_lname_array[i], author_mname_array[i], author_fname_array[i], author_affiliation_array[i], author_address_array[i], author_email_array[i], author_ord_array[i], author_paperid_array[i])
+                authors_batch.append(author_execute)
+        if (count_batch % 100 == 0):
+
+                authors_batch_string = ', '.join(str(e) for e in authors_batch)
+
+                batch_author = ("insert into authors2 "
+                                "(cluster, name, lname, mname, fname, affil, address, email, ord, paperid) "
+                                "values %s") %authors_batch_string
+                print(batch_author)
+                cursor.execute(batch_author.replace('None','NULL'))
+                cnx.commit()
+                authors_batch.clear()
+        #author_array.extend([author_name_array[i], author_affiliation_array[i], author_address_array[i], author_email_array[i], author_ord_array[i]])
+
+
+
+
+        '''
+        paper_version = 1
+        paper_cluster = None
+        paper_doi = None
+        paper_norm_title = None
+        paper_norm_venue = None
+        paper_venueType = None
+        paper_publisher = None
+        paper_pubAddress = None
+        paper_tech = None
+        paper_public = 1
+        paper_repositoryID = None
+        paper_conversionTrace = None
+        paper_selfCites = 0
+        paper_versionTime = None
+        '''
+
+def get_doi(s):
+        basetag = os.path.basename(os.path.normpath(s).replace('.tei.xml',''))
+        tag = '{http://www.tei-c.org/ns/1.0}'
+        doi_string = ''
+        tree = ET.parse(s)
+        root = tree.getroot()
+        for child in root:
+                for fileDesc in child.findall(tag + 'fileDesc'):
+                        for sourceDesc in fileDesc.findall(tag + 'sourceDesc'):
+                                for biblStruct in sourceDesc.findall(tag + 'biblStruct'):
+                                        for idno in biblStruct.findall(tag + 'idno'):
+                                                doi_string = idno.text
+
+        if (doi_string == ''):
+
+                return
+
+        else:
+                doi_execute_string = "update papers2 set doi = '%s' where id ='%s'" %(doi_string, basetag)
+                print(doi_execute_string)
+                cursor.execute(doi_execute_string)
+                cnx.commit()
+def norm_author():
+        #basetag = os.path.basename(os.path.normpath(s).replace('.tei.xml',''))
+        #print(basetag)
+        cursor.execute("select id from authors2 where id = (select min(id) from authors2)")
+        min_id = cursor.fetchone()
+        min_id = str(min_id).replace(',','').replace('(','').replace(')','').replace("'","")
+
+        cursor.execute("select id from authors2 where id = (select max(id) from authors2)")
+        max_id = cursor.fetchone()
+        max_id = str(max_id).replace(',','').replace('(','').replace(')','').replace("'","")
+
+        for id in range(int(min_id), int(max_id) + 1):
+
+                cursor.execute("select lname from authors2 where id = %s" %id)
+                row = cursor.fetchone()
+                row = str(row).replace(',','').replace('(','').replace(')','').replace("'","")
+                row = str(row).replace('prof','').replace('dr','').replace('professor','').replace('doctor','')
+
+                #print((str(row[1]).replace(',','')).replace('(','').replace(')',''))
+
+
+                if (row == 'None'):
+
+
+                        continue
+                else:
+
+                        lname_norm_execute = "update authors2 set lname = '%s' where id = %s" % (row, id)
+                        #print(lname_norm_execute)
+                        cursor.execute(lname_norm_execute)
+
+                        #print(lname_norm_execute)
+                        cnx.commit()
+
+                cursor.execute("select mname from authors2 where id = %s" %id)
+                row_mname = cursor.fetchone()
+                row_mname = str(row_mname).replace(',','').replace('(','').replace(')','').replace("'","")
+                row_mname = str(row_mname).replace('prof','').replace('dr','').replace('professor','').replace('doctor','')
+                if (row_mname == 'None'):
+                        continue
+                else:
+                        mname_norm_execute = "update authors2 set mname = '%s' where id = %s" % (row_mname, id)
+                        cursor.execute(mname_norm_execute)
+                        cnx.commit()
+
+                cursor.execute("select fname from authors2 where id = %s" %id)
+                row_fname = cursor.fetchone()
+                row_fname = str(row_fname).replace(',','').replace('(','').replace(')','').replace("'","")
+                row_fname = str(row_fname).replace('prof','').replace('dr','').replace('professor','').replace('doctor','')
+                if (row_fname == 'None'):
+                        continue
+                else:
+                        fname_norm_execute = "update authors2 set fname = '%s' where id = %s" % (row_fname, id)
+                        cursor.execute(fname_norm_execute)
+                        cnx.commit()
+def stop_words(s):
+        stopwords_norm_array = []
+        basetag = os.path.basename(os.path.normpath(s).replace('.tei.xml',''))
+        cursor.execute("select norm_title from papers2 where id = '%s'" % (basetag))
+        norm_title = cursor.fetchone()
+        #print(basetag)
+
+        norm_title = str(norm_title).replace(',','').replace('(','').replace(')','')
+
+        for r in (("'t ",""),("'s ",""),(' an ',' '),(' and ',' '),(' are ',' '),(' as ',' '),(' at ',' '),(' be ',' '),(' but ',' '),(' by ',' '),(' for ',' '),(' if ',' '),(' in ',' '),(' into ',' '),(' is ',' '),(' it ',' '),(' no ',' '),(' not ',' '),(' of ',' '),(' on ',' '),(' or ' ,' '),(' such ',' '),(' that ',' '),(' the ',' '),(' their ',' '),(' then ',' '),(' there ',' '),(' these ',' '),(' they ',' '),(' this ',' '),(' to ',' '),(' was ',' '),(' will ',' '),(' with ',' ')):
+                norm_title = str(norm_title).replace(*r)
+
+        #print(norm_title)
+        translator = str.maketrans(string.punctuation, ' '*len(string.punctuation))
+        norm_title = norm_title.translate(translator)
+        if (norm_title == 'None'):
+
+                return
+        else:
+
+                norm_title_stopwords = "update papers2 set norm_title = '%s' where id = '%s'" %(norm_title, basetag)
+                #print(norm_title_stopwords)
+                cursor.execute(norm_title_stopwords)
+                #print(norm_title_stopwords)
+                cnx.commit()
+def create_keys(s):
+
+        author_norm_array = []
+
+
+        basetag = os.path.basename(os.path.normpath(s).replace('.tei.xml',''))
+
+        cursor.execute("select norm_title from papers2 where id = '%s'" % (basetag))
+        norm_title = cursor.fetchone()
+        norm_title = str(norm_title).replace(',','').replace('(','').replace(')','').replace("'","").replace(' ','')
+        norm_title_split = norm_title.split()
+        norm_title = ' '.join(norm_title.split())
+
+
+        key_array = []
+
+        cursor.execute("select lname from authors2 where paperid = '%s'" % (basetag))
+        author_title = cursor.fetchall()
+
+        author_title = str(author_title).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+
+
+        author_title = ' '.join(author_title.split())
+        author_title_split = author_title.split()
+        #print(len(author_title_split))
+
+
+        '''
+        if (len(author_title_split) == 1):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+        if (len(author_title_split) >= 2 and len(norm_title) > 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = norm_title[20:40] + '_' + author_title_split[0]
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+                key_four = norm_title[20:40] + '_' + author_title_split[1]
+                key_array.append(key_four)
+        if (len(author_title_split) >= 2 and len(norm_title) < 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_three = '_' + author_title_split[1]
+                key_array.append(key_three)
+        if (len(author_title) == 0 and len(norm_title) > 0 and norm_title != 'None'):
+                key_one = norm_title[0:20] + '_'
+                key_array.append(key_one)
+                #print(basetag)
+                #print(key_array)
+        '''
+        if (len(author_title) == 0 and norm_title == 'None'):
+                return
+        if (len(author_title) == 0 and norm_title != 'None'):
+                key_one = norm_title[0:20] + '_'
+                key_array.append(key_one)
+        if (len(author_title_split) == 1 and norm_title == 'None'):
+                key_one = '_' + author_title_split[0]
+                key_array.append(key_one)
+
+        if ((len(author_title_split) == 1) and norm_title != 'None'):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] == 'None' and norm_title == 'None'):
+                print(basetag)
+                key_one = '_' + author_title_split[0]
+                key_array.append(key_one)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] == 'None' and len(norm_title) <= 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = '_' + author_title_split[0]
+                key_array.append(key_two)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] == 'None' and len(norm_title) > 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = norm_title[20:40] + '_' + author_title_split[0]
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_'
+                key_array.append(key_three)
+                key_four = norm_title[20:40] + '_'
+                key_array.append(key_four)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] != 'None' and norm_title == 'None'):
+                key_one = '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = '_' + author_title_split[1]
+                key_array.append(key_two)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] != 'None' and len(norm_title) <= 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = '_' + author_title_split[0]
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+                key_four = '_' + author_title_split[1]
+                key_array.append(key_four)
+
+
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] != 'None' and len(norm_title) > 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = norm_title[20:40] + '_' + author_title_split[0]
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+                key_four = norm_title[20:40] + '_' + author_title_split[1]
+                key_array.append(key_four)
+
+        if (len(author_title_split) >= 2 and author_title_split[0] == 'None' and author_title_split[1] != 'None' and norm_title == 'None'):
+                key_one = '_' + author_title_split[1]
+                key_array.append(key_one)
+        if (len(author_title_split) >= 2 and author_title_split[0] == 'None' and author_title_split[1] != 'None' and len(norm_title) <= 20):
+                key_one = norm_title[0:20] + '_'
+                key_array.append(key_one)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+        if (len(author_title_split) >= 2 and author_title_split[0] == 'None' and author_title_split[1] != 'None' and len(norm_title) > 20):
+                key_one = norm_title[0:20] + '_'
+                key_array.append(key_one)
+                key_two = norm_title[20:40] + '_'
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+                key_four = norm_title[20:40] + '_' + author_title_split[1]
+                key_array.append(key_four)
+
+
+        for i in range(len(key_array)):
+
+
+
+
+                cursor.execute("""insert into keycap (paperid, cleankey) values (%s, %s)""",(basetag, key_array[i]))
+
+
+
+                cnx.commit()
+
+
+
+
+        #print(string_norm_title[0])
+def count(s, i=[0]):
+
+        i[0]+=1
+        return i[0]
+
+if __name__ == '__main__':
+        logging.basicConfig(filename='author_log.log',level=logging.DEBUG)
+        #norm_author()
+        authors_batch = []
+        papers_batch = []
+        count_batch = 0
+        count_execute = 0
+        #norm_author()
+
+
+        for root, dirs, files in os.walk("/home/cxg5395/doit"):
+                for file in files:
+                        if file.endswith(".xml"):
+                                path = os.path.join(root, file)
+                                #execute(path)
+
+                                try:
+                                        #print(count_execute)
+                                        count_execute = count_execute + 1
+                                        count_batch = count_batch + 1
+                                        create_keys(path)
+
+
+                                except:
+                                        logging.debug(path)
+        cnx.close()
+        '''
+        papers_batch_string = ', '.join(str(e) for e in papers_batch)
+        batch_insert = ("insert into papers2 "
+                "(id, version, cluster, doi, title, norm_title, sha1_norm_title, sim_norm_title, abstract, sim_abstract, year, venue, norm_venue, venueType, pages, volume, number, publisher, pubAddress, tech, public, ncites, versionName, crawlDate, repositoryID, conversionTrace, selfCites, versionTime) "
+                "values %s ") %papers_batch_string
+        cursor.execute(batch_insert.replace('None', 'NULL'))
+        cnx.commit()
+        authors_batch_string = ', '.join(str(e) for e in authors_batch)
+        batch_author = ("insert into authors2 "
+                "(cluster, name, lname, mname, fname, affil, address, email, ord, paperid) "
+                "values %s") %authors_batch_string
+        cursor.execute(batch_author.replace('None','NULL'))
+        cnx.commit()
+        cnx.close()
+        '''
+                                                #surname = persName.find(tag + 'surname').text
+                                                        #something.append(firstname)
+                                                        #print(something)
+                                                        #forme.get('type') middlename in persName:
+                                                                #firstname = persName.find(tag + 'forename').text
+                                                                #middlename = persName.find(tag + 'forename').text where middlename.get('type') == 'middle'
+                                                                #print(firstname, middlena)
+                       
