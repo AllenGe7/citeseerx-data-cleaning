@@ -1,0 +1,156 @@
+from mysql.connector import MySQLConnection, Error
+import os
+import mysql.connector
+import time
+cnx = mysql.connector.connect(user= 'csx-devel', password= 'csx-devel', host='csxstaging01.ist.psu.edu', database='citegraph_ieee')
+
+cursor = cnx.cursor()
+
+
+def create_file():
+
+        file_execute = "select idamsid from papers where idamsid is not null"
+
+        cursor.execute(execute_string)
+
+        id = cursor.fetchall()
+
+        id = str(id).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','').replace(' ','\n')
+
+        with open ('/home/cxg5395/ieee.txt', 'w') as f:
+                f.write(id)
+                f.close()
+
+def insert(paper_id):
+        f = open('/home/cxg5395/ieee.txt')
+        lines = f.readlines()
+        for line in lines:
+                line = line.strip()
+                cursor.execute("select norm_title from papers2 where id = '%s'" % (paper_id))
+                norm_title = cursor.fetchone()
+                norm_title = str(norm_title).replace(',','').replace('(','').replace(')','').replace("'","").replace(' ','')
+                norm_title_split = norm_title.split()
+                norm_title = ' '.join(norm_title.split())
+
+                key_array = []
+
+
+        f.close()
+def insert_key(s):
+        author_norm_array = []
+
+
+        basetag = s
+
+        cursor.execute("select norm_title from papers where id = %s" % (basetag))
+        norm_title = cursor.fetchone()
+        norm_title = str(norm_title).replace(',','').replace('(','').replace(')','').replace("'","").replace(' ','')
+        norm_title_split = norm_title.split()
+        norm_title = ' '.join(norm_title.split())
+
+
+        key_array = []
+
+        cursor.execute("select lname from authors where paperid = %s" % (basetag))
+        author_title = cursor.fetchall()
+
+        author_title = str(author_title).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+
+
+        author_title = ' '.join(author_title.split())
+        author_title_split = author_title.split()
+        if (len(author_title) == 0 and norm_title == 'None'):
+                return
+        if (len(author_title) == 0 and norm_title != 'None'):
+                key_one = norm_title[0:20] + '_'
+                key_array.append(key_one)
+        if (len(author_title_split) == 1 and norm_title == 'None'):
+                key_one = '_' + author_title_split[0]
+                key_array.append(key_one)
+
+        if ((len(author_title_split) == 1) and norm_title != 'None'):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] == 'None' and norm_title == 'None'):
+                print(basetag)
+                key_one = '_' + author_title_split[0]
+                key_array.append(key_one)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] == 'None' and len(norm_title) <= 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = '_' + author_title_split[0]
+                key_array.append(key_two)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] == 'None' and len(norm_title) > 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = norm_title[20:40] + '_' + author_title_split[0]
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_'
+                key_array.append(key_three)
+                key_four = norm_title[20:40] + '_'
+                key_array.append(key_four)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] != 'None' and norm_title == 'None'):
+                key_one = '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = '_' + author_title_split[1]
+                key_array.append(key_two)
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] != 'None' and len(norm_title) <= 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = '_' + author_title_split[0]
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+                key_four = '_' + author_title_split[1]
+                key_array.append(key_four)
+
+
+        if (len(author_title_split) >= 2 and author_title_split[0] != 'None' and author_title_split[1] != 'None' and len(norm_title) > 20):
+                key_one = norm_title[0:20] + '_' + author_title_split[0]
+                key_array.append(key_one)
+                key_two = norm_title[20:40] + '_' + author_title_split[0]
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+                key_four = norm_title[20:40] + '_' + author_title_split[1]
+                key_array.append(key_four)
+        if (len(author_title_split) >= 2 and author_title_split[0] == 'None' and author_title_split[1] != 'None' and norm_title == 'None'):
+                key_one = '_' + author_title_split[1]
+                key_array.append(key_one)
+        if (len(author_title_split) >= 2 and author_title_split[0] == 'None' and author_title_split[1] != 'None' and len(norm_title) <= 20):
+                key_one = norm_title[0:20] + '_'
+                key_array.append(key_one)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+        if (len(author_title_split) >= 2 and author_title_split[0] == 'None' and author_title_split[1] != 'None' and len(norm_title) > 20):
+                key_one = norm_title[0:20] + '_'
+                key_array.append(key_one)
+                key_two = norm_title[20:40] + '_'
+                key_array.append(key_two)
+                key_three = norm_title[0:20] + '_' + author_title_split[1]
+                key_array.append(key_three)
+                key_four = norm_title[20:40] + '_' + author_title_split[1]
+                key_array.append(key_four)
+
+
+        for i in range(len(key_array)):
+
+
+
+
+                cursor.execute("""insert into citeseerx2.keycap_ieee (paperid_ieee, cleankey_ieee) values (%s, %s)""",(basetag, key_array[i]))
+
+
+
+                cnx.commit()
+
+if __name__ == '__main__':
+        count_total = "select count(*) from papers"
+        cursor.execute(count_total)
+        count = cursor.fetchone()
+        count = str(count).replace("(","").replace(",","").replace(")","")
+        print(count)
+        for i in range(int(count)):
+                insert_key(i+1)
+        cnx.close()
