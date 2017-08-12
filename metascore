@@ -1,0 +1,67 @@
+from elasticsearch import Elasticsearch
+#import requests
+import mysql.connector
+import json
+#import pymysql
+import traceback
+import sys
+from elasticsearch_dsl.connections import connections
+#from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
+from elasticsearch_dsl.query import MultiMatch, Match, Q
+
+from mysql.connector import MySQLConnection, Error
+
+cnx = mysql.connector.connect(user= 'csx-devel', password= 'csx-devel', host='csxstaging01.ist.psu.edu', database='citeseerx2')
+
+cursor = cnx.cursor()
+def get_fullinfo():
+        f = open('ieee_match2.txt')
+        lines = f.readlines()
+        c = open('a.txt','w')
+        d = open('b.txt','w')
+        for line in lines:
+                line = line.strip()
+                file_execute = "select id from papers where rid = %s" % line
+                cursor.execute(file_execute)
+                result = cursor.fetchone()
+                result = str(result).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+
+
+                get_title = "select title from papers where id = '%s'" % result
+                cursor.execute(get_title)
+                result_title = cursor.fetchone()
+                result_title = str(result_title).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+
+
+                get_all = "select id, title, abstract, year, ncites from papers where id = '%s'" % result
+                cursor.execute(get_all)
+                result_all = cursor.fetchone()
+                result_all = str(result_all).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+
+                c.write('\n')
+                c.write('---------------------------')
+                c.write(result_all)
+                c.write('\n')
+                d.write('\n')
+                d.write('\n')
+                d.write(result_all + '\n')
+                client = Elasticsearch(hosts=[{'host':"csxextraction02.ist.psu.edu", 'port':9200}], timeout = 40)
+                s = Search(using=client, index="ieeeelastic") \
+                        .query("match", title= "%s" % result_title)
+                response = s.execute()
+                for hit in response:
+                        string = str(hit.meta.score)  +  ' | ' + str(hit['id'])  +  ' | ' + str(hit['title'])  +  ' | ' + str(hit['abstract']) +  ' | ' + str(hit['keywords'])
+                        c.write(str(string))
+                        c.write('\n')
+                        if (hit.meta.score > 25):
+
+                                d.write(str(string) + '\n')
+
+
+                        #print(hit.meta.score, hit['title'], hit['abstract'], hit['keywords'])
+        c.close()
+        d.close()
+if __name__ == '__main__':
+        get_fullinfo()
+        cnx.close()
