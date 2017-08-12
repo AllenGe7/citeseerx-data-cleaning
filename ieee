@@ -1,0 +1,102 @@
+from mysql.connector import MySQLConnection, Error
+import os
+import mysql.connector
+import time
+from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
+
+cnx = mysql.connector.connect(user= 'csx-devel', password= 'csx-devel', host='csxstaging01.ist.psu.edu', database='citeseerx2')
+cursor = cnx.cursor()
+
+def get_line():
+        f = open('ieee_match2.txt')
+        lines = f.readlines()
+        for line in lines:
+                line = line.strip()
+
+                file_execute = "select id from papers where rid = %s" % line
+
+                cursor.execute(file_execute)
+                result = cursor.fetchone()
+                result = str(result).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+                NONE = 'NULL'
+                insert_execute = "insert into masterv3 (csxid, ieeeid) values ('%s', '%s')" %(result, NONE)
+
+                cursor.execute(insert_execute)
+                cnx.commit()
+
+def get_ieeeid():
+        a = open('ieeeid.txt','w')
+        all_ieeeid = "select ieeeid from master_final where ieeeid != 'NULL'"
+        cursor.execute(all_ieeeid)
+        ieee_all = cursor.fetchall()
+        ieee_all = str(ieee_all).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','').replace('  ','\n').replace(' ','\n')
+        a.write(ieee_all)
+        a.close()
+        print(ieee_all)
+        cursor.close()
+
+def get_true_year():
+        f = open('match.txt')
+        count = 0
+        lines = f.readlines()
+        a = open('/home/cxg5395/ieee_base/year/match_year.txt','w')
+        for line in lines:
+                line = line.strip()
+
+                year_truth_execute = 'select year from papers where rid = %s' %line
+
+                cursor.execute(year_truth_execute)
+                year_truth = cursor.fetchone()
+                year_truth = str(year_truth).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+                if (year_truth == 'None'):
+                        year_truth = 0
+
+                a.write(str(year_truth) + '\n')
+        a.close()
+def execute():
+        a = open('/home/cxg5395/ieee_base/year/match_year.txt')
+        lines = a.readlines()
+        b = open('/home/cxg5395/ieee_base/year/abs_match_year.txt', 'w')
+        c = open('/home/cxg5395/ieee_base/year/abs_non_match_year.txt', 'w')
+        client = Elasticsearch(hosts=[{'host':"csxextraction02.ist.psu.edu", 'port':9200}], timeout = 40)
+
+        for line in lines:
+        #client = Elasticsearch(timeout = 40)
+        # to add more filters to your search just add another query
+        # "match" indicates approximate match
+        # secod parameter of query is the field and its value that you want to search on
+                s = Search(using=client, index="ieeeelastic") \
+                        .query("match", title="%s"%line)
+                response = s.execute()
+
+                count = 0
+
+                for hit in response:
+
+                        if (count == 0):
+                                target = abs(int(line) - int(hit['year']))
+
+                                b.write(str(target) + '\n')
+                                count+=1
+                        else:
+                                target2 = abs(int(line) - int(hit['year']))
+                                c.write(str(target2) + '\n')
+
+
+        b.close()
+        c.close()
+
+def get_match():
+        matching_numbers = "select ieeeid from master_final where ieeeid != 'NULL'"
+        cursor.execute(matching_numbers)
+        match = cursor.fetchall()
+        match = str(match).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','').replace('  ','\n').replace(' ','\n')
+        a = open('match.txt','w')
+        a.write(match)
+        a.close()
+if __name__ == '__main__':
+
+        execute()
+        cursor.close()
+        cnx.close()
