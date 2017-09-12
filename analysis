@@ -1,0 +1,266 @@
+from mysql.connector import MySQLConnection, Error
+import os
+import mysql.connector
+import time
+from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
+import Levenshtein
+cnx = mysql.connector.connect(user= 'csx-devel', password= 'csx-devel', host='csxstaging01.ist.psu.edu', database='citeseerx2')
+cursor = cnx.cursor(buffered = True)
+
+def makefile():
+	a = open('/home/cxg5395/ieee_base/csxid.txt')
+	b = open('51_last.txt','w')
+	lines = a.readlines()
+	for line in lines:
+		line = line.strip()
+		execute = "select lname from authors where paperid = '%s'"%line
+		cursor.execute(execute)
+		result = cursor.fetchall()
+		result = str(result).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		b.write(result + '\n')
+	b.close()
+def makefile2():
+	a = open('/home/cxg5395/ieee_base/all.txt')
+	b = open('500_last.txt','w')
+	lines = a.readlines()
+	for line in lines:
+		line = line.strip()
+		if (line == '--'):
+			b.write('--' + '\n')
+			continue
+		else:
+			execute = "select lname from citegraph_ieee.authors where paperid = '%s'"%line
+			cursor.execute(execute)
+			result = cursor.fetchall()
+			result = str(result).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+			b.write(result + '\n')
+	b.close()
+def execute():
+	
+	a = open('/home/cxg5395/ieee_base/try_title.txt')
+	#b = open('/home/cxg5395/ieee_base/all.txt')
+	#c = open('/home/cxg5395/ieee_base/csxid.txt')
+	#b = open('/home/cxg5395/part2/500_fauthor_match.txt')
+	#c = open('/home/cxg5395/part2/51_fauthor.txt')
+	b = open('/home/cxg5395/ieee_base/abstract_all.txt')
+	c = open('/home/cxg5395/ieee_base/abstract_51.txt')
+	#b = open('500_last.txt')
+	#c = open('51_last.txt')
+	#b = open('/home/cxg5395/ieee_base/hamming/match_hamming.txt')
+	#c = open('/home/cxg5395/ieee_base/hamming/51_match_hamming.txt')
+	#d = open('/home/cxg5395/part2/result2/flname_good.txt','w')
+	#e = open('/home/cxg5395/part2/result2/flname_bad.txt','w')
+	#b = open('/home/cxg5395/ieee_base/year/all_year.txt')
+	#c = open('/home/cxg5395/ieee_base/year/match_year.txt')
+	#b = open('/home/cxg5395/part2/500_last.txt')
+	#c = open('/home/cxg5395/part2/51_last.txt')
+	#b = open('/home/cxg5395/part2/500_venue.txt')
+	#c = open('/home/cxg5395/part2/51_venue.txt')
+	g = open('/home/cxg5395/ieee_base/csxid.txt')
+	h = open('/home/cxg5395/ieee_base/all.txt')
+	h_array = []
+	h_line = h.readlines()
+	for h_line_line in h_line:
+		h_line_line = h_line_line.strip()
+		h_array.append(h_line_line)
+	g_array = []
+	g_line = g.readlines()
+	for g_line_line in g_line:
+		g_line_line = g_line_line.strip()
+		g_array.append(g_line_line)
+
+
+	#d = open('/home/cxg5395/part2/result/venue_good.txt','w')
+	#e = open('/home/cxg5395/part2/result/venue_bad.txt','w')
+	ieeeid = c.readlines()
+	ieee = []
+	for ieee_id in ieeeid:
+		ieee_id = ieee_id.strip()
+		ieee.append(ieee_id)
+	li = b.readlines()
+	lines = a.readlines()
+	title_all = []
+	title_match = []
+
+	for lin in li:
+		lin = lin.strip()
+		title_all.append(lin)
+	for line in lines:
+		line = line.strip()
+		title_match.append(line)
+	
+	count = 0
+	index = 0
+	for i in range(len(title_all)):
+		diffs = 0
+		num = 0
+		dem = 0
+		result = 0
+		if ('--' in title_all[i]):
+			index+=1
+			
+			continue
+		else:
+			if (str(i) in title_match):
+				count+=1
+				
+				
+				
+				
+				
+				#venue
+				
+
+				#first and last author analysis
+				'''
+				match_split = str(ieee[index]).split()
+				all_split = str(title_all[i]).split()
+				if (str(match_split[0][0:1]).lower() == str(all_split[0][0:1]).lower()):
+				
+					result+=1
+				try:				
+					if (str(match_split[1][0:1]).lower() == str(all_split[1][0:1]).lower()):
+						result+=2	
+				except:
+					result+=0
+				try:
+					if (str(match_split[2]).lower() == str(all_split[2]).lower()):
+						result+=4
+						#print(match_split[2])
+						#print(match_split[2])
+				except:
+					result+=0
+				'''
+			#if (str(i) in title_match):
+				#d.write(str(result) + '\n')
+			#else:
+				#e.write(str(result) + '\n')
+				
+				#hamming distance
+				
+				for ch1, ch2 in zip(ieee[index], title_all[i]):
+					if(ch1 != ch2):
+						diffs+=1
+				
+				
+			else:
+				for ch1, ch2 in zip(ieee[index], title_all[i]):
+					if(ch1 != ch2):
+						diffs+=1
+					
+				if (diffs == 0):
+					
+					#execute = "select abstract from citeseerx2.papers where id = '%s'"%g_array[index]
+					
+					execute = "select abstract from citegraph_ieee.papers where id = %s"%h_array[i]
+					cursor.execute(execute)
+					result = cursor.fetchone()
+					result = str(result).replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+					print(result)
+					
+				
+				
+				#leven distance
+				'''
+				ratio = Levenshtein.ratio(ieee[index], title_all[i])
+				
+				if (ratio < .4):
+					print(i + 1)
+				'''
+				#year analysis
+				'''
+				target = abs(int(ieee[index]) - int(title_all[i]))
+				if (target > 10):
+					print(g_line[index + 1].strip())
+					execute = "select year from citeseerx2.papers where id = '%s'"%g_line[index + 1].strip()
+					cursor.execute(execute)
+					result = cursor.fetchone()
+					result = str(result).replace('(','').replace(')','').replace("'","").replace('[','').replace(']','').replace('  ','\n').replace(' ','\n')
+					print(result)
+				'''
+				#jaccord or something
+				'''
+				ratio = Levenshtein.ratio(ieee[index], title_all[i])
+				match_split = str(ieee[index]).split()
+				all_split = str(title_all[i]).split()
+				match_array = []
+				all_array = []
+				
+				for j in range(len(match_split)):
+					match_array.append(match_split[j])
+				for k in range(len(all_split)):
+					all_array.append(all_split[k])
+				
+				
+				if (len(all_array) > len(match_array)):
+					
+					for variable in match_array:
+						if (variable in all_array):
+							num+=1
+							all_array.remove(variable)
+				else:
+					for variable in all_array:
+						if (variable in match_array):
+							num+=1
+							match_array.remove(variable)
+				dem = len(all_array) + len(match_array)
+				total = num/dem
+				
+				#d.write(str(total) + '\n')
+				#print(len(all_array))
+				#print(len(match_array))
+				match_array.clear()
+				all_array.clear()
+			else:
+				match_split = str(ieee[index]).split()
+				all_split = str(title_all[i]).split()
+				match_array = []
+				all_array = []
+				for j in range(len(match_split)):
+					match_array.append(match_split[j])
+				for k in range(len(all_split)):
+					all_array.append(all_split[k])
+				
+				for variable in match_array:
+					if (variable in all_array):
+						num+=1
+						all_array.remove(variable)
+				dem = len(all_array) + len(match_array)
+				try:
+					total = num/dem
+					
+				except:
+					total = 0
+				if(total == 1):
+					
+					execute = "select name from citegraph_ieee.authors where paperid = '%s'"%g_array[index].strip()
+					print(execute)
+					cursor.execute(execute)
+					result = cursor.fetchall()
+					result = str(result).replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+					#print(result)
+				#e.write(str(total) + '\n')
+				total = num/dem
+				
+				match_array.clear()
+				all_array.clear()
+				'''				
+	#d.close()
+	#e.close()
+def test():
+	a = open('test2.txt')
+	lines = a.readlines()
+	for line in lines:
+		line = line.strip().replace("'","")
+		print(line)
+		execute = "select title from citegraph_ieee.papers where id = %s"%line
+		cursor.execute(execute)
+		result = cursor.fetchone()
+		result = str(result).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		print(result)
+		
+if __name__ == '__main__':
+	execute()
+	cnx.close()
+	cursor.close()
