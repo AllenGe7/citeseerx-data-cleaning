@@ -1,0 +1,641 @@
+from mysql.connector import MySQLConnection, Error
+import os
+import mysql.connector
+import time
+from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
+import Levenshtein
+cnx = mysql.connector.connect(user= 'csx-devel', password= 'csx-devel', host='csxstaging01.ist.psu.edu', database='citeseerx2')
+cursor = cnx.cursor(buffered = True)
+
+def get_line():
+	f = open('ieee_match2.txt')
+	lines = f.readlines()
+	for line in lines:
+		line = line.strip()
+		
+		file_execute = "select id from papers where rid = %s" % line
+
+		cursor.execute(file_execute)
+		result = cursor.fetchone()
+		result = str(result).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		NONE = 'NULL'
+		insert_execute = "insert into masterv3 (csxid, ieeeid) values ('%s', '%s')" %(result, NONE)
+		
+		cursor.execute(insert_execute)
+		cnx.commit()
+
+def get_ieeeid():
+	a = open('ieeeid.txt','w')
+	all_ieeeid = "select ieeeid from master_final where ieeeid != 'NULL'"
+	cursor.execute(all_ieeeid)
+	ieee_all = cursor.fetchall()
+	ieee_all = str(ieee_all).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','').replace('  ','\n').replace(' ','\n')
+	a.write(ieee_all)
+	a.close()
+	print(ieee_all)
+	cursor.close()
+def get_csxid():
+	a = open('csxid.txt','w')
+	all_csxidid = "select csxid from master_final where ieeeid != 'NULL'"
+	cursor.execute(all_csxidid)
+	csx_all = cursor.fetchall()
+	csx_all = str(csx_all).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','').replace('  ','\n').replace(' ','\n')
+	a.write(csx_all)
+	a.close()
+	print(csx_all)
+	cursor.close()
+#creating a file for all matching csxid titles
+def csxid_title():
+	a = open('csxid.txt')
+	lines = a.readlines()
+	b = open('csxid_title.txt', 'w')
+	for line in lines:
+		line = line.strip()
+		print(line)
+		execute = "select title from papers where id = '%s'" %line
+		cursor.execute(execute)
+		csxid_title = cursor.fetchall()
+		print(csxid_title)
+		csxid_title = str(csxid_title).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		
+		b.write(csxid_title + '\n')
+	b.close()
+def csxid_author():
+	a = open('csxid.txt')
+	b = open('csxid_author.txt','w')
+	lines = a.readlines()
+	for line in lines:
+		line = line.strip()
+		print(line)
+		get_lastname = "select lname from authors where paperid = '%s'" %line
+		print(get_lastname)
+		cursor.execute(get_lastname)
+		lastname = cursor.fetchone()
+		
+		lastname = str(lastname).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		print(lastname)
+		b.write(lastname + '\n')
+	b.close()
+def csxid_year():
+	a = open('csxid.txt')
+	b = open('csxid_year.txt','w')
+	lines = a.readlines()
+	for line in lines:
+		line = line.strip()
+                
+		get_year = "select year from papers where id = '%s'" %line
+		print(get_year)          
+		cursor.execute(get_year)
+		year = cursor.fetchone()
+		year = str(year).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		
+		b.write(year + '\n')
+	b.close()
+def csxid_candidate_author():
+	a = open('csxid_author.txt')
+	b = open('csxid_candidate_author.txt','w')
+	c = open('csxid_year.txt')
+	author = []
+	year = []
+	lines = a.readlines()
+	client = Elasticsearch(hosts=[{'host':"csxextraction02.ist.psu.edu", 'port':9200}], timeout = 40)
+	year_lines = c.readlines()
+	for line in lines:
+		line = line.strip()
+		author.append(line)
+	print('done')
+		
+	for year_line in year_lines:
+		year_line = year_line.strip()
+		year.append(year_line)
+	print('done')
+	for i in range(len(author)):
+		print('1')
+		s = Search(using=client, index="ieeeelastic") \
+			.query("match", authors="%s" %author[i]) 
+			
+			
+		response = s.execute()
+		for hit in response:
+			string = str(hit['id'])
+			b.write(string + '\n')
+			
+	b.close()
+def csxid_candidate_title():
+	a = open('csxid_title.txt')
+	#b = open('csxid_candidate_title.txt', 'w')
+	f = open('all.txt','w')
+	c = open('ieeeid.txt')
+	#d = open('right.txt','w')
+	#e = open('wrong.txt','w')
+	ieeeid_read = c.readlines()
+	ieeeid = []
+	for ieee_reading in ieeeid_read:
+		ieee_reading = ieee_reading.strip()
+		ieeeid.append(ieee_reading)
+	title = []
+	lines = a.readlines()
+	client = Elasticsearch(hosts=[{'host':"csxextraction02.ist.psu.edu", 'port':9200}], timeout = 40)
+	
+	for line in lines:
+		line = line.strip()
+		title.append(line)
+	print('done')
+
+	for i in range(len(title)):
+		
+		s = Search(using=client, index="ieeeelastic") \
+			.query("match", title ="%s" %title[i])
+		response = s.execute()
+		for hit in response:
+			string = str(hit['id'])
+			f.write(string + '\n')
+			#b.write(string + '\n')
+			#if (string in ieeeid):
+			#	d.write(string + '\n')
+			#else:
+			#	e.write(string + '\n')
+		f.write('--' + '\n')
+	f.close		 
+	#b.close()
+	#d.close()
+	#e.close()
+def get_hamming_title():
+	a = open('csxid.txt')
+	b = open('csxid_candidate_title.txt')
+	d = open('/home/cxg5395/ieee_base/hamming/51_match_hamming.txt', 'w')
+	lines = a.readlines()
+	for line in lines:
+		line = line.strip()
+		execute = "select sim_norm_title from papers where id = '%s'" %line
+		cursor.execute(execute)
+		hamming = cursor.fetchone()
+		hamming = str(hamming).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		d.write(hamming + '\n')
+	d.close()
+def get_hamming_title_execute():
+	a = open('/home/cxg5395/ieee_base/hamming/match_hamming.txt')
+	b = open('/home/cxg5395/ieee_base/hamming/51_match_hamming.txt')
+	f = open('all.txt')
+	all_txt = f.readlines()
+	d = open('ieeeid.txt')
+	#c = open('/home/cxg5395/ieee_base/hamming_abstract/final.txt','w')
+	#e = open('/home/cxg5395/ieee_base/hamming_abstract/bad.txt','w')
+	z = open('try_title.txt','w')
+	biglist = []
+	smalllist = []
+	ieeeid = []
+	count = 0
+	lin = a.readlines()
+	lines = b.readlines()
+	id = d.readlines()
+	correct = []
+	correct_all = []
+	ieeeid_title = []
+	
+	for ieeeid_titles in all_txt:
+		ieeeid_titles = ieeeid_titles.strip()
+		ieeeid_title.append(ieeeid_titles)
+	
+	for something in id:
+		something = something.strip()
+		ieeeid.append(something)
+	for li in lin:
+		li = li.strip()
+		biglist.append(li)
+	for line in lines:
+		line = line.strip()
+		smalllist.append(line)
+	for j in range(len(ieeeid)):
+		total_string = str(ieeeid[j]) + ' ' + str(smalllist[j])
+		correct.append(total_string)
+	for x in range(len(ieeeid_title)):
+		
+		all_string = str(ieeeid_title[x]) + ' ' + str(biglist[x])
+		if '-' in all_string:
+			all_string = all_string.replace(' --','')
+			
+		correct_all.append(all_string)
+	
+	
+	index = 0
+	numb = smalllist[index]
+	array_everything = []
+	for i in range(len(ieeeid_title)):
+		
+		if (('-' in biglist[i]) and index+1 != len(smalllist)):
+		
+			index+=1
+			numb = smalllist[index]
+			
+			continue
+		
+		else:
+			
+			
+			'''
+			execute = "select sim_norm_title from ieee_papers where id = '%s' " %biglist[i]
+			cursor.execute(execute)
+			hamming = cursor.fetchone()
+			hamming = str(hamming).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+			hamming = hamming.strip()
+			array_everything.append(hamming)
+			'''
+			
+			if (ieeeid[index] == ieeeid_title[i]):
+				print(ieeeid[index])
+				count+=1
+				z.write(str(i)+ '\n')
+				
+				
+		
+				
+			
+	'''
+				print(numb + ' ' +  i)
+				diffs = 0
+				for ch1, ch2 in zip(numb, i):
+					if(ch1 != ch2):
+						diffs+=1
+				c.write(str(diffs) + '\n')
+				print('1')
+			else:
+				diffs = 0
+				for ch1, ch2 in zip(numb, i):
+					if(ch1 != ch2):
+						diffs+=1
+				e.write(str(diffs) + '\n')
+	'''	
+	z.close()		
+	#e.close
+	#c.close()
+def leven_title_numbers():
+	a = open('try_title.txt')
+	b = open('/home/cxg5395/ieee_base/hamming/match_hamming.txt')
+	c = open('/home/cxg5395/ieee_base/hamming/51_match_hamming.txt')
+	d = open('5_leven_title.txt','w')
+	e = open('6_leven_title.txt','w')
+	ieeeid = c.readlines()
+	ieee = []
+	for ieee_id in ieeeid:
+		ieee_id = ieee_id.strip()
+		ieee.append(ieee_id)
+	li = b.readlines()
+	lines = a.readlines()
+	title_all = []
+	title_match = []
+	
+	for lin in li:
+		lin = lin.strip()
+		title_all.append(lin)
+	for line in lines:
+		line = line.strip()
+		title_match.append(line)
+	count = 0
+	index = 0
+	for i in range(len(title_all)):
+		diffs = 0
+		if ('-' in title_all[i]):
+			index+=1
+			continue
+		else:
+			if (str(i) in title_match):
+				ratio = Levenshtein.ratio(ieee[index], title_all[i])
+				d.write(str(ratio) + '\n')
+			else:
+				ratio = Levenshtein.ratio(ieee[index], title_all[i])
+				e.write(str(ratio) + '\n')
+			'''	
+				for ch1, ch2 in zip(ieee[index], title_all[i]):
+					
+					
+					if(ch1 != ch2):
+						diffs+=1
+					
+				d.write(str(diffs) + '\n')
+			else:
+				for ch1, ch2 in zip(ieee[index], title_all[i]):
+					if(ch1 != ch2):
+						diffs+=1
+				e.write(str(diffs) + '\n')
+			'''
+	d.close()
+
+	e.close()
+def leven_abstract_numbers():
+	a = open('try_title.txt')
+	b = open('/home/cxg5395/part2/500_venue.txt')
+	c = open('/home/cxg5395/part2/51_venue.txt')
+	d = open('/home/cxg5395/part2/result/venue_good','w')
+	e = open('/home/cxg5395/part2/result/venue_bad','w')
+	ieeeid = c.readlines()
+	ieee = []
+	for ieee_id in ieeeid:
+		ieee_id = ieee_id.strip()
+		ieee.append(ieee_id)
+	li = b.readlines()
+	lines = a.readlines()
+	title_all = []
+	title_match = []
+
+	for lin in li:
+		lin = lin.strip()
+		title_all.append(lin)
+	for line in lines:
+		line = line.strip()
+		title_match.append(line)
+	count = 0
+	index = 0
+	for i in range(len(title_all)):
+		diffs = 0
+		if ('-' in title_all[i]):
+			index+=1
+			continue
+		else:
+			if (str(i) in title_match):
+
+				target = abs(int(ieee[index]) - int(title_all[i]))
+				print(target)
+			
+		
+			#if (str(i) in title_match):
+			#	target = abs(int(ieee[index]) - int(title_all[i]))
+			#	d.write(str(target) + '\n')
+			#else:
+			#	target = abs(int(ieee[index]) - int(title_all[i]))
+			#	e.write(str(target) + '\n')
+			'''
+				ratio = Levenshtein.ratio(ieee[index], title_all[i])
+				d.write(str(ratio) + '\n')
+			else:
+				ratio = Levenshtein.ratio(ieee[index], title_all[i])
+				e.write(str(ratio) + '\n')
+			'''
+			'''
+				for ch1, ch2 in zip(ieee[index], title_all[i]):
+
+
+					if(ch1 != ch2):
+						diffs+=1
+
+				d.write(str(diffs) + '\n')
+			else:
+				for ch1, ch2 in zip(ieee[index], title_all[i]):
+					if(ch1 != ch2):
+						diffs+=1
+				e.write(str(diffs) + '\n')
+			'''
+	d.close()
+	e.close()	
+def leven_title_execute():
+	a = open('/home/cxg5395/ieee_base/abstract_all.txt')
+	b = open('/home/cxg5395/ieee_base/abstract_51.txt')
+	d = open('ieeeid.txt')
+	c = open('/home/cxg5395/ieee_base/leven_abstract/final.txt','w')
+	e = open('/home/cxg5395/ieee_base/leven_abstract/bad.txt','w')
+	biglist = []
+	smalllist = []
+	ieeeid = []
+	count = 0
+	lin = a.readlines()
+	lines = b.readlines()
+	id = d.readlines()
+	for something in id:
+		something = something.strip()
+		ieeeid.append(something)
+	for li in lin:
+		li = li.strip()
+		biglist.append(li)
+	for line in lines:
+		line = line.strip()
+		smalllist.append(line)
+	index = 0
+
+	numb = smalllist[index]
+	for i in biglist:
+		if (i == '--' and index+1 != len(smalllist)):
+			index+=1
+			numb = smalllist[index]
+			continue
+		else:
+			execute = "select id from papers_abstract where abstract = '%s'" %i
+			cursor.execute(execute)
+			hamming = cursor.fetchone()
+			hamming = str(hamming).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+			hamming = hamming.strip()
+			if (hamming in ieeeid):
+				ratio = Levenshtein.ratio(numb, i)
+				c.write(str(ratio) + '\n')
+				print('1')
+			else:
+				ratio = Levenshtein.ratio(numb, i)
+				e.write(str(ratio) + '\n')
+				print('2')
+	e.close
+	c.close()
+def all_candidate():
+	a = open('csxid_candidate_title.txt')
+	b = open('csxid_candidate_author.txt')
+	title = []
+	author = []
+	title_lines = a.readlines()
+	author_lines = b.readlines()
+	for title_line in title_lines:
+		title_line = title_line.strip()
+		title.append(title_line)
+	for author_line in author_lines:
+		author_line = author_line.strip()
+		author.append(author_line)
+	c = open('csxid_candidate.txt','w')
+	combine = list(set(title + author))
+	for i in range(len(combine)):
+		c.write(str(combine[i]).strip() + '\n')
+	c.close()
+def test():
+	a = open('csxid_candidate_title.txt')
+	b = open('ieeeid.txt')
+	c = []
+	d = []
+	lin = a.readlines()
+	lines = b.readlines()
+	for a_lin in lin:
+		a_lin = a_lin.strip()
+		c.append(a_lin)
+	for a_lines in lines:
+		a_lines = a_lines.strip()
+		d.append(a_lines)
+	print(len(set(c) & set(d)))	
+def get_true_year():
+	f = open('match.txt')
+	count = 0
+	lines = f.readlines()
+	a = open('/home/cxg5395/ieee_base/year/match_year.txt','w')
+	for line in lines:
+		line = line.strip()
+		
+		year_truth_execute = 'select year from papers where rid = %s' %line
+		
+		cursor.execute(year_truth_execute)
+		year_truth = cursor.fetchone()
+		year_truth = str(year_truth).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		
+		
+		a.write(str(year_truth) + '\n')
+	a.close()
+def get_true_title():
+	f = open('match.txt')
+	lines = f.readlines()
+	a = open('/home/cxg5395/ieee_base/year/match_title.txt','w')
+	for line in lines:
+		line = line.strip()
+		a.write(str(year_truth) + '\n')
+	a.close()
+def get_true_title():
+	f = open('match.txt')
+	lines = f.readlines()
+	a = open('/home/cxg5395/ieee_base/year/match_title.txt','w')
+	for line in lines:
+		line = line.strip()
+		year_truth_execute = 'select title from citegraph_ieee.papers where id = %s' %line
+		cursor.execute(year_truth_execute)
+		year_truth = cursor.fetchone()
+		year_truth = str(year_truth).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		a.write(year_truth + '\n')
+	a.close()
+def execute():
+	a = open('/home/cxg5395/ieee_base/year/match_year.txt')
+	lines = a.readlines()
+	b = open('/home/cxg5395/ieee_base/year/abs_match_year.txt', 'w')
+	c = open('/home/cxg5395/ieee_base/year/abs_non_match_year.txt', 'w')
+	client = Elasticsearch(hosts=[{'host':"csxextraction02.ist.psu.edu", 'port':9200}], timeout = 40)
+	
+	for line in lines:
+	#client = Elasticsearch(timeout = 40)
+	# to add more filters to your search just add another query
+	# "match" indicates approximate match
+	# secod parameter of query is the field and its value that you want to search on
+		s = Search(using=client, index="ieeeelastic") \
+       			.query("match", title="%s"%line)
+		response = s.execute()
+		
+		count = 0
+		
+		for hit in response:
+			
+			if (count == 0):
+				target = abs(int(line) - int(hit['year']))
+				
+				b.write(str(target) + '\n')
+				count+=1
+			else:
+				target2 = abs(int(line) - int(hit['year']))
+				c.write(str(target2) + '\n')
+				
+	
+	b.close()
+	c.close()
+
+def get_match():
+	matching_numbers = "select ieeeid from master_final where ieeeid != 'NULL'"
+	cursor.execute(matching_numbers)
+	match = cursor.fetchall()
+	match = str(match).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','').replace('  ','\n').replace(' ','\n')
+	a = open('match.txt','w')
+	a.write(match)
+	a.close()
+def get_hamming():
+	a = open('/home/cxg5395/ieee_base/year/all_year.txt', 'w')
+	b = open('all.txt')
+	lines = b.readlines()
+	count = 0
+	for line in lines:
+		line = line.strip()
+		if (line == '--'):
+			a.write('--' + '\n')
+			continue
+		execute = "select year from ieee_papers where id = %s" %line
+		cursor.execute(execute)
+		hamming = cursor.fetchone()
+		hamming = str(hamming).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		a.write(hamming + '\n')
+		count+=1
+		print(count)
+	a.close()
+def get_hamming_execute():
+	a = open('/home/cxg5395/ieee_base/hamming/match_hamming.txt')
+	lines = a.readlines()
+	b = open('/home/cxg5395/ieee_base/hamming/abs_match_hamming.txt', 'w')
+	c = open('/home/cxg5395/ieee_base/hamming/abs_non_match_hamming.txt', 'w')
+	client = Elasticsearch(hosts=[{'host':"csxextraction02.ist.psu.edu", 'port':9200}], timeout = 40)
+	for line in lines:
+		s = Search(using=client, index="ieeeelastic") \
+			.query("match", sim_norm_title="%s"%line)
+		response = s.execute()
+		count = 0
+		diffs = 0
+		print('1')
+		for hit in response:
+			print('3')
+			if (count == 0):
+				print('2')
+				print(hit['sim_norm_title'])
+				count+=1
+def get_hamming_abstract():
+	a = open('/home/cxg5395/ieee_base/hamming_abstract/match_hamming.txt', 'w')
+	b = open('match.txt')
+	lines = b.readlines()
+	for line in lines:
+		execute = "select title from ieee_papers where id = %s" %line
+		cursor.execute(execute)
+		hamming_abstract = cursor.fetchone()
+	client = Elasticsearch(hosts=[{'host':"csxextraction02.ist.psu.edu", 'port':9200}], timeout = 40)
+	for line in lines:
+		
+		s = Search(using=client, index="ieeeelastic") \
+			.query("match", title ="%s"%line)
+		response = s.execute()
+		count = 0
+		diffs = 0
+		
+		for hit in response:
+			
+			if (count == 0):
+				hit['abstract'] = str(hit['abstract'])[0:100]
+				print(hit.meta.score, hit['abstract'])
+def get_simhash_title():
+	a = open('match.txt')
+	b = open('get_simhash_title.txt','w')
+	lines = a.readlines()
+	for line in lines:
+		line = line.strip()
+		execute = 'select sim_norm_title from ieee_papers where id = %s' %line
+		cursor.execute(execute)
+		simhash = cursor.fetchone()
+		simhash = str(simhash).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		b.write(simhash + '\n')
+	b.close()
+def get_simhash_title_execute():
+	a = open('get_simhash_title.txt','w')
+def fix():
+	a = open('/home/cxg5395/ieee_base/hamming/match_hamming.txt','w')
+	b = open('all.txt')
+	lines = b.readlines()
+	
+	for line in lines:
+		line = line.strip()
+		if (line == '--'):
+			a.write('--' + '\n')
+			continue
+		execute = "select sim_norm_title from ieee_papers where id = %s" %line
+		cursor.execute(execute)
+		simhash = cursor.fetchone()
+		print(simhash)
+		simhash = str(simhash).replace(',','').replace('(','').replace(')','').replace("'","").replace('[','').replace(']','')
+		a.write(str(simhash) + '\n')
+	a.close()
+			
+if __name__ == '__main__':
+	leven_abstract_numbers()
+	cursor.close()
+	cnx.close()
